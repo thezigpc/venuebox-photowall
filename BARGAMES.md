@@ -191,14 +191,21 @@ There were no console errors and no 4xx or 5xx responses.
 ## Container
 - Writes only under `/data`: `admin.json`, `settings.json`, `photos.json`, `photos/*.jpg`.
 - Multi-stage `Dockerfile`, `USER node`, `/data` chowned, `linux/amd64` via the workflow.
-- **Not yet tested in Docker.** This PC has no Docker. The publish workflow's build is the
-  first clean-checkout build. The read-only run (`--read-only --tmpfs /tmp --cap-drop ALL
-  --memory 384m`) is still to do.
+- The clean-checkout build is the publish workflow's build on GitHub (this PC has no Docker).
+- **Tested on a Linux Docker host** (2026-11-15). This was a throwaway run of the published
+  image, removed afterwards:
+  - `docker run --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges
+    --memory 384m -v vol:/data`: started, and `/health` answered. Image size 391 MB.
+  - It runs as uid 1000. Writing to `/app` fails (read-only file system).
+  - An 11.7 MB, 24-megapixel JPEG with GPS data was stored as 1920×1280 with no EXIF; the
+    thumbnail had none either. A portrait photo became 1440×1920.
+  - Memory afterwards was 95 MiB of 384 MiB. It wasn't killed for memory and didn't restart.
 
 ## Image
-`ghcr.io/thezigpc/venuebox-photowall:<version>`, published by
-`.github/workflows/publish-image.yml` (the snippet, unchanged). The repo isn't created yet:
-`thezigpc/venuebox-photowall` is waiting on the user.
+- `ghcr.io/thezigpc/venuebox-photowall:<version>`, published by
+  `.github/workflows/publish-image.yml` (the snippet, unchanged).
+- Repo: https://github.com/thezigpc/venuebox-photowall (public). The package is public too: an
+  anonymous pull of 0.1.0 returned 200.
 
 ## SDK requests
 - **Emoji on TVs:** does the box's casting Chromium have an emoji font? Patrons will put emoji
