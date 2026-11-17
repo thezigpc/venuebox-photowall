@@ -17,7 +17,7 @@ public URL, until staff approve it. Keep it that way in every change:
   nor GameKit (`C:\CodeProjects\GameKit`) or other modules. Platform needs go to the GameBroker
   session (ListAgents; its name starts with "GameBroker") as "SDK requests".
 - Pattern source: `C:\CodeProjects\MenuModule` (read only).
-- Vendored: `vendor/bargames-sdk-0.15.0.tgz`, `vendor/bargames-gamekit-0.10.3.tgz`. New versions
+- Vendored: `vendor/bargames-sdk-0.16.0.tgz`, `vendor/bargames-gamekit-0.10.6.tgz`. New versions
   arrive under new file names; never overwrite a tarball (the lockfile pins its hash).
 
 ## Layout

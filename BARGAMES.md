@@ -1,6 +1,6 @@
 # Bar Games integration: Photo Wall (app)
 
-**Level 2, `kind: "app"`, SDK 0.15.0, game kit 0.10.3 (0.1.1).** Patrons send photos from their phones,
+**Level 2, `kind: "app"`, SDK 0.16.0, game kit 0.10.6 (0.1.2).** Patrons send photos from their phones,
 staff approve them, and approved photos play on the venue's TVs. Built for the box: it uses the
 TVs, staff sign-in through the box and the box's admin password.
 
@@ -240,11 +240,31 @@ There were no console errors and no 4xx or 5xx responses.
     card.
   - No console errors, no 4xx.
 
+## Kit 0.10.6 and SDK 0.16.0 (0.1.2)
+- SDK 0.16.0 needed no changes: Photo Wall uses neither guest hosts nor results.
+- **Admin number fields** are now `type="text" inputMode="numeric"`, kept as text while typing,
+  so a field can be emptied and retyped. The server checks the ranges on save, and each field
+  shows its range.
+- The page has no `<select>`s and no global `nowrap` rule, so the kit's dropdown list needs
+  nothing here.
+- **Checked on the mock box** at 1080p and 4K with `?bg_keyboard=1`:
+  - The caption keeps its auto-Shift, Enter moves to the name, and Enter in the name sends.
+  - The staff password field (`autoFocus`) opens the keyboard on load (0.10.5) without
+    auto-Shift (0.10.4), and Enter submits the form.
+  - Number fields get the number pad. Retention was changed from 7 to 6 with ⌫ and 6, then
+    saved and read back as 6.
+  - The focused field stays above the keyboard; Save scrolls into view.
+  - Kiosk views are as in 0.1.1: a shared tablet gets camera only; the box's screen gets the
+    QR card.
+  - At phone width without the flag: no keyboard, both upload buttons.
+  - No console errors other than the intended 409 for a wrong password.
+
 ## SDK requests
 - ~~Emoji on TVs~~: answered, the broker image already has `fonts-noto-color-emoji`.
 - **Kiosk rate limit:** the server can't tell a box touch screen from a phone, so a kiosk
   shares one address's cap (4 × N photos an hour). A gateway header for "this request is from
-  one of the box's own screens" would let the app give kiosks their own limit.
+  one of the box's own screens" would let the app give kiosks their own limit. GameBroker has
+  queued it for a later SDK round.
 - **Nice to have:** a standard way for an app to say "N things waiting for staff" as a badge
   on the box's Apps tab or iPad, not only a Tonight attention item. For now the attention item
   does the job.

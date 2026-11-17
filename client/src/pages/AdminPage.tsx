@@ -23,6 +23,9 @@ function SettingsForm({ staff }: { staff: Staff }) {
   const onBox = isOnBox(venue);
   const [state, setState] = useState<AdminState | null>(null);
   const [draft, setDraft] = useState<Settings | null>(null);
+  // Number fields are text while typing (kit 0.10.4: type="text" inputMode="numeric"), so a
+  // field can be emptied and retyped; the server checks the ranges on save.
+  const [numbers, setNumbers] = useState<Record<NumberKey, string>>({} as Record<NumberKey, string>);
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -31,6 +34,7 @@ function SettingsForm({ staff }: { staff: Staff }) {
       const s = await api.state();
       setState(s);
       setDraft(s.settings);
+      setNumbers(Object.fromEntries(NUMBER_FIELDS.map((f) => [f.key, String(s.settings[f.key])])) as Record<NumberKey, string>);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) return staff.expired();
       setNotice({ text: err instanceof Error ? err.message : "Couldn't load.", error: true });
@@ -53,7 +57,8 @@ function SettingsForm({ staff }: { staff: Staff }) {
     if (!draft) return;
     setSaving(true);
     try {
-      const { paused: _paused, ...patch } = draft; // the host page owns the pause switch
+      const { paused: _paused, ...rest } = draft; // the host page owns the pause switch
+      const patch = { ...rest, ...Object.fromEntries(NUMBER_FIELDS.map((f) => [f.key, numbers[f.key] === "" ? NaN : Number(numbers[f.key])])) };
       await api.saveSettings(patch);
       setNotice({ text: "Saved. The TVs pick it up within a few seconds.", error: false });
       await load();
@@ -126,16 +131,17 @@ function SettingsForm({ staff }: { staff: Staff }) {
           <label key={f.key}>
             {f.label}
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={LIMITS[f.key][0]}
-              max={LIMITS[f.key][1]}
-              step={1}
-              value={draft[f.key]}
-              onChange={(e) => setDraft({ ...draft, [f.key]: Number(e.target.value) })}
+              pattern="[0-9]*"
+              maxLength={5}
+              value={numbers[f.key] ?? ""}
+              onChange={(e) => setNumbers({ ...numbers, [f.key]: e.target.value.replace(/[^0-9]/g, "") })}
               required
             />
-            {f.hint && <span className="muted small">{f.hint}</span>}
+            <span className="muted small">
+              {LIMITS[f.key][0]} to {LIMITS[f.key][1]}.{f.hint && ` ${f.hint}`}
+            </span>
           </label>
         ))}
         <label className="check">
