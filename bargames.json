@@ -2,8 +2,8 @@
   "id": "photowall",
   "name": "Photo Wall",
   "kind": "app",
-  "version": "0.1.0",
-  "image": "ghcr.io/thezigpc/venuebox-photowall:0.1.0",
+  "version": "0.1.1",
+  "image": "ghcr.io/thezigpc/venuebox-photowall:0.1.1",
   "port": 3014,
   "sdk": { "version": "0.15.0", "level": 2 },
   "routes": {

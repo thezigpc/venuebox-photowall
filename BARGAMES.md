@@ -1,6 +1,6 @@
 # Bar Games integration: Photo Wall (app)
 
-**Level 2, `kind: "app"`, SDK 0.15.0, game kit 0.8.0.** Patrons send photos from their phones,
+**Level 2, `kind: "app"`, SDK 0.15.0, game kit 0.10.3 (0.1.1).** Patrons send photos from their phones,
 staff approve them, and approved photos play on the venue's TVs. Built for the box: it uses the
 TVs, staff sign-in through the box and the box's admin password.
 
@@ -207,10 +207,44 @@ There were no console errors and no 4xx or 5xx responses.
 - Repo: https://github.com/thezigpc/venuebox-photowall (public). The package is public too: an
   anonymous pull of 0.1.0 returned 200.
 
+## On-screen keyboard and shared screens (0.1.1, kit 0.10.3)
+- `<OnScreenKeyboard />` is mounted once in `client/src/main.tsx`. One app serves every page
+  (phone, TV, host, admin), so this covers them all.
+- **Fields:**
+  - caption (`maxLength` 80) and first name (`maxLength` 20) are real `<input>`s in a
+    `<form onSubmit>`;
+  - Enter in the caption moves to the name instead of sending; Enter in the name sends;
+  - staff passwords have `maxLength` 200;
+  - the admin's number fields use `inputMode="numeric"`.
+- **Shared screens** (`useSharedScreen()`) forget the last person:
+  - no saved first name, and no "Your photos" from earlier;
+  - a new in-memory device id per person, so the per-phone limit is per person (the
+    per-address cap still holds);
+  - a Done button, and the "Sent!" screen clears itself after 30 s.
+  - On a shared screen only "Take a photo" is offered: the gallery would hold earlier patrons'
+    photos.
+  - The box's own touch screens (shared with the on-screen keyboard) have no camera, and a file
+    picker there would browse the box's disk. They show "Send a photo from your phone" with a QR
+    code and address instead.
+- **Checked on the mock box** (`--base /photowall`, headless Chrome, `?bg_keyboard=1`) at
+  1080p and 4K:
+  - "Cheers Jo" and "Ana" were typed with the on-screen keys, and the photo was sent with
+    Enter;
+  - 25 taps into the name stopped at 20 letters;
+  - the focused field and the Send button stayed above the keyboard (343 px tall at 1080p,
+    687 px at 4K).
+  - Admin: number fields get the number pad. The focused field stays above the keyboard, and
+    the kit's body padding lets Save be scrolled into view.
+  - At phone width with `?bg_keyboard=0` there was no keyboard, and the page was unchanged.
+  - `?bg_shared=1`: camera only, nothing from earlier. With `?bg_keyboard=1` as well: the QR
+    card.
+  - No console errors, no 4xx.
+
 ## SDK requests
-- **Emoji on TVs:** does the box's casting Chromium have an emoji font? Patrons will put emoji
-  in captions; without the font they show as boxes. If not, could the box image add
-  `fonts-noto-color-emoji`?
+- ~~Emoji on TVs~~: answered, the broker image already has `fonts-noto-color-emoji`.
+- **Kiosk rate limit:** the server can't tell a box touch screen from a phone, so a kiosk
+  shares one address's cap (4 × N photos an hour). A gateway header for "this request is from
+  one of the box's own screens" would let the app give kiosks their own limit.
 - **Nice to have:** a standard way for an app to say "N things waiting for staff" as a badge
   on the box's Apps tab or iPad, not only a Tonight attention item. For now the attention item
   does the job.

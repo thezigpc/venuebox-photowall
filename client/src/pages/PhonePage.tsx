@@ -3,11 +3,12 @@
 // photos" list so they can see when theirs is up.
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { BackToGames, VenueAnnouncement } from "@bargames/gamekit/client";
-import { isOnBox } from "@bargames/sdk/client";
+import { BackToGames, JoinAddress, shortAddress, useOnScreenKeyboard, useSharedScreen, VenueAnnouncement } from "@bargames/gamekit/client";
+import { basePath, isOnBox, joinDisplay } from "@bargames/sdk/client";
 import { cleanCaption, cleanName, DEFAULT_NAME, MAX_CAPTION, MAX_NAME, MAX_UPLOAD_MB, type MyPhotoStatus, type PublicConfig } from "@photowall/shared";
 import { api } from "../api";
-import { preparePhoto, rememberSent, saveName, savedName, sendPhoto, sentPhotos, type SentPhoto } from "../upload";
+import { Qr } from "../Qr";
+import { newPerson, preparePhoto, rememberSent, saveName, savedName, sendPhoto, sentPhotos, type SentPhoto } from "../upload";
 import { useVenue } from "../useVenue";
 
 type Step =
@@ -77,6 +78,19 @@ function YourPhotos({ sent }: { sent: SentPhoto[] }) {
   );
 }
 
+/** The box's own touch screen: send from your phone instead (QR code and address). */
+function FromYourPhone({ venue }: { venue: ReturnType<typeof useVenue> }) {
+  const url = isOnBox(venue) ? joinDisplay(venue, "/").url : `${location.origin}${basePath()}/`;
+  return (
+    <section className="card from-phone">
+      <h2>Send a photo from your phone</h2>
+      <p className="muted">Scan the code with your phone camera. Staff check every photo before it shows.</p>
+      <Qr url={url} className="from-phone-qr" />
+      <JoinAddress url={shortAddress(url)} label="Or go to" />
+    </section>
+  );
+}
+
 export function PhonePage() {
   const venue = useVenue();
   const config = useConfig();
@@ -85,11 +99,39 @@ export function PhonePage() {
   const logo = onBox ? venue.game.theme.logoUrl : undefined;
   const [step, setStep] = useState<Step>({ kind: "pick" });
   const [caption, setCaption] = useState("");
-  const [first, setFirst] = useState(savedName);
+  // A screen many people use in turn (a kiosk, kit 0.10.2): nothing about the last person is
+  // kept or shown. The box's own touch screens (shared, with the on-screen keyboard) have no
+  // camera, and their file picker would browse the box itself, so they point to phones instead.
+  const shared = useSharedScreen();
+  const keyboard = useOnScreenKeyboard();
+  const boxScreen = shared && keyboard;
+  const [first, setFirst] = useState(() => (shared ? "" : savedName()));
   const [error, setError] = useState<{ text: string; field?: "caption" | "name" } | null>(null);
-  const [sent, setSent] = useState<SentPhoto[]>(sentPhotos);
+  const [sent, setSent] = useState<SentPhoto[]>(() => (shared ? [] : sentPhotos()));
   const camera = useRef<HTMLInputElement>(null);
   const library = useRef<HTMLInputElement>(null);
+  const nameField = useRef<HTMLInputElement>(null);
+
+  /** Kiosk: back to a blank page for the next person. */
+  const nextPerson = useCallback(() => {
+    newPerson();
+    setFirst("");
+    setCaption("");
+    setSent([]);
+    setError(null);
+    setStep({ kind: "pick" });
+  }, []);
+
+  useEffect(() => {
+    if (shared) nextPerson();
+  }, [shared, nextPerson]);
+
+  // Kiosk: the "Sent!" screen clears itself after a while, in case the person just walks off.
+  useEffect(() => {
+    if (!shared || step.kind !== "sent") return;
+    const t = setTimeout(nextPerson, 30_000);
+    return () => clearTimeout(t);
+  }, [shared, step.kind, nextPerson]);
 
   useEffect(() => {
     document.title = name;
@@ -125,14 +167,19 @@ export function PhonePage() {
       setStep({ kind: "compose", file, url: URL.createObjectURL(file) });
       return setError({ text: `That photo is over ${MAX_UPLOAD_MB} MB. Try a different one.` });
     }
-    const r = await sendPhoto(blob, c.value, n.value, (progress) => setStep((s) => (s.kind === "sending" ? { ...s, progress } : s)));
+    const r = await sendPhoto(blob, c.value, n.value, shared, (progress) => setStep((s) => (s.kind === "sending" ? { ...s, progress } : s)));
     if (!r.ok) {
       setStep({ kind: "compose", file, url: URL.createObjectURL(file) });
       return setError({ text: r.error, field: r.field });
     }
-    saveName(n.value);
-    rememberSent({ id: r.id, at: Date.now(), thumb: preview });
-    setSent(sentPhotos());
+    const mine = { id: r.id, at: Date.now(), thumb: preview };
+    if (shared) {
+      setSent((list) => [mine, ...list]); // this person's only, in memory
+    } else {
+      saveName(n.value);
+      rememberSent(mine);
+      setSent(sentPhotos());
+    }
     setCaption("");
     setStep({ kind: "sent", message: r.message || "Sent! Staff will check it before it shows." });
   };
@@ -157,14 +204,19 @@ export function PhonePage() {
           </div>
         )}
 
-        {step.kind === "pick" && (
+        {step.kind === "pick" && boxScreen && <FromYourPhone venue={venue} />}
+
+        {step.kind === "pick" && !boxScreen && (
           <section className="card pick">
             <button className="primary big" disabled={paused} onClick={() => camera.current?.click()}>
               Take a photo
             </button>
-            <button className="big" disabled={paused} onClick={() => library.current?.click()}>
-              Choose a photo
-            </button>
+            {/* On a shared screen the gallery holds earlier patrons' photos: camera only. */}
+            {!shared && (
+              <button className="big" disabled={paused} onClick={() => library.current?.click()}>
+                Choose a photo
+              </button>
+            )}
             <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => picked(e.currentTarget)} />
             <input ref={library} type="file" accept="image/*" hidden onChange={(e) => picked(e.currentTarget)} />
             {error && <p className="error">{error.text}</p>}
@@ -180,15 +232,21 @@ export function PhonePage() {
               </span>
               <input
                 value={caption}
-                maxLength={MAX_CAPTION + 10}
+                maxLength={MAX_CAPTION}
                 onChange={(e) => setCaption(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter moves on to the name rather than sending (on-screen keyboards too).
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  nameField.current?.focus();
+                }}
                 placeholder="Happy birthday, Jo!"
                 disabled={step.kind === "sending"}
                 aria-invalid={error?.field === "caption"}
                 enterKeyHint="next"
               />
-              <span className={`count${[...caption].length > MAX_CAPTION ? " error" : ""}`}>
-                {[...caption].length}/{config?.maxCaption ?? MAX_CAPTION}
+              <span className="count">
+                {caption.length}/{config?.maxCaption ?? MAX_CAPTION}
               </span>
             </label>
             <label>
@@ -196,10 +254,11 @@ export function PhonePage() {
                 Your first name <span className="muted">(optional)</span>
               </span>
               <input
+                ref={nameField}
                 value={first}
-                maxLength={MAX_NAME + 10}
+                maxLength={MAX_NAME}
                 onChange={(e) => setFirst(e.target.value)}
-                autoComplete="given-name"
+                autoComplete={shared ? "off" : "given-name"}
                 disabled={step.kind === "sending"}
                 aria-invalid={error?.field === "name"}
                 enterKeyHint="send"
@@ -230,9 +289,12 @@ export function PhonePage() {
               ✓
             </div>
             <p className="sent-text">{step.message}</p>
-            <button className="primary" onClick={() => setStep({ kind: "pick" })} disabled={paused}>
-              Send another
-            </button>
+            <div className="row">
+              <button className="primary grow" onClick={() => setStep({ kind: "pick" })} disabled={paused}>
+                Send another
+              </button>
+              {shared && <button onClick={nextPerson}>Done</button>}
+            </div>
           </section>
         )}
 

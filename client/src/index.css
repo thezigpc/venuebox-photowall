@@ -268,6 +268,28 @@ input[aria-invalid="true"] {
 .mine-status.is-gone {
   color: var(--muted);
 }
+.from-phone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+}
+.from-phone h2,
+.from-phone p {
+  margin: 0;
+}
+.from-phone-qr {
+  width: min(60vw, 280px);
+  background: #fff;
+  padding: 10px;
+  border-radius: 12px;
+  line-height: 0;
+}
+.from-phone-qr svg {
+  width: 100%;
+  height: auto;
+}
 .fine {
   font-size: 0.85rem;
   line-height: 1.45;

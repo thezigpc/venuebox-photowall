@@ -18,13 +18,25 @@ function storage(): Storage | null {
   }
 }
 
+const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => b.toString(16).padStart(2, "0")).join("");
+
+/**
+ * On a shared screen (a kiosk) each person gets their own id, kept in memory only, so one
+ * person's photos don't use up the next person's hourly limit. The server's per-address cap
+ * still holds for the kiosk as a whole.
+ */
+let personDevice = "";
+export function newPerson(): void {
+  personDevice = "";
+}
+
 /** This phone's random id, for the per-phone limit. Not tied to anything about the person. */
-export function deviceId(): string {
+export function deviceId(shared = false): string {
+  if (shared) return (personDevice ||= randomId());
   const s = storage();
   let id = s?.getItem(DEVICE_KEY) ?? "";
   if (!/^[A-Za-z0-9_-]{16,64}$/.test(id)) {
-    const bytes = crypto.getRandomValues(new Uint8Array(18));
-    id = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+    id = randomId();
     try {
       s?.setItem(DEVICE_KEY, id);
     } catch {
@@ -119,12 +131,12 @@ function blobToDataUrl(b: Blob): Promise<string> {
 
 export type UploadResult = { ok: true; id: string; message: string } | { ok: false; error: string; field?: "caption" | "name"; code?: string };
 
-export function sendPhoto(blob: Blob, caption: string, name: string, onProgress: (fraction: number) => void): Promise<UploadResult> {
+export function sendPhoto(blob: Blob, caption: string, name: string, shared: boolean, onProgress: (fraction: number) => void): Promise<UploadResult> {
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", bgUrl("/api/photos"));
     xhr.setRequestHeader("content-type", blob.type || "application/octet-stream");
-    xhr.setRequestHeader("x-photowall-device", deviceId());
+    xhr.setRequestHeader("x-photowall-device", deviceId(shared));
     if (caption) xhr.setRequestHeader("x-photowall-caption", encodeURIComponent(caption));
     if (name) xhr.setRequestHeader("x-photowall-name", encodeURIComponent(name));
     xhr.timeout = 120_000;

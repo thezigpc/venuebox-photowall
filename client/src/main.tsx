@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { ErrorBoundary } from "@bargames/gamekit/client";
+import { ErrorBoundary, OnScreenKeyboard } from "@bargames/gamekit/client";
 import { basePath } from "@bargames/sdk/client";
 import { PhonePage } from "./pages/PhonePage";
 import { TvPage } from "./pages/TvPage";
@@ -39,5 +39,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ErrorBoundary fallback={(_error, reload) => <CrashScreen reload={reload} />}>
       <Page />
     </ErrorBoundary>
+    {/* Kit 0.10: big keys under a focused field on touchscreens with no keyboard of their own
+        (the box's touch screens, venue clients in touch mode). Hidden on phones, tablets, PCs. */}
+    <OnScreenKeyboard />
   </React.StrictMode>,
 );

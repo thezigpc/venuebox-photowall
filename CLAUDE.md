@@ -17,7 +17,7 @@ public URL, until staff approve it. Keep it that way in every change:
   nor GameKit (`C:\CodeProjects\GameKit`) or other modules. Platform needs go to the GameBroker
   session (ListAgents; its name starts with "GameBroker") as "SDK requests".
 - Pattern source: `C:\CodeProjects\MenuModule` (read only).
-- Vendored: `vendor/bargames-sdk-0.15.0.tgz`, `vendor/bargames-gamekit-0.8.0.tgz`. New versions
+- Vendored: `vendor/bargames-sdk-0.15.0.tgz`, `vendor/bargames-gamekit-0.10.3.tgz`. New versions
   arrive under new file names; never overwrite a tarball (the lockfile pins its hash).
 
 ## Layout
@@ -39,4 +39,5 @@ npm workspaces, TypeScript, Express 4, React 18 + Vite 5, Node 22, tests with `n
   (a Git Bash `/c/...` path becomes `C:\c\...` in Node).
 - Other sessions run servers too: check ports are free first, and stop only the PIDs on your
   own ports, never processes by name.
-- Commit only when the user asks. Ask the user before creating GitHub repos.
+- Releases: commit, push `main` and publish without asking (the user's standing OK,
+  2026-11-17). Bump `version` and the `image` tag together. Never touch the box itself.
